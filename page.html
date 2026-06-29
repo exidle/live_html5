@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра "Жизнь" (Конвей)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #45a049; }
+        button.stop { background-color: #f44336; }
+        button.stop:hover { background-color: #d32f2f; }
+        canvas {
+            border: 20px solid #333;
+            background-color: #222;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #info { margin-top: 10px; font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <h1>Игра "Жизнь" Конвея</h1>
+    
+    <div class="controls">
+        <button id="startBtn">Старт</button>
+        <button id="stepBtn">Шаг</button>
+        <button id="clearBtn">Очистить</button>
+        <button id="randomBtn">Случайное поле</button>
+    </div>
+
+    <canvas id="gridCanvas" width="800" height="800"></canvas>
+    
+    <div id="info">Поколение: <span id="genCount">0</span> | Живых клеток: <span id="aliveCount">0</span></div>
+
+    <script>
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const resolution = 16; // Размер клетки в пикселях
+        const cols = Math.floor(canvas.width / resolution);
+        const rows = Math.floor(canvas.height / resolution);
+
+        console.log("resolution = %d, cols = %d, rows = %d", resolution, cols, rows);
+
+        let grid = buildGrid();
+        let animationId = null;
+        let isRunning = false;
+        let generation = 0;
+        let lastHoveredCell = null;
+
+
+        // Инициализация пустого поля
+        function buildGrid() {
+            return new Array(cols).fill(null)
+                .map(() => new Array(rows).fill(0));
+        }
+
+        // Рендер поля
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let aliveCount = 0;
+            
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    if (grid[x][y] === 1) {
+                        ctx.fillStyle = '#64ffda';
+                        ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+                        aliveCount++;
+                    }
+                }
+            }
+            document.getElementById('genCount').textContent = generation;
+            document.getElementById('aliveCount').textContent = aliveCount;
+        }
+
+        // Подсчет соседей
+        function countNeighbors(g, x, y) {
+            let sum = 0;
+            for (let i = -1; i < 2; i++) {
+                for (let j = -1; j < 2; j++) {
+                    if (i === 0 && j === 0) continue;
+                    let newX = (x + i + cols) % cols;
+                    let newY = (y + j + rows) % rows;
+                    sum += g[newX][newY];
+                }
+            }
+            return sum;
+        }
+
+        // Вычисление следующего поколения
+        function updateGrid() {
+            let nextGrid = buildGrid();
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    let state = grid[x][y];
+                    let neighbors = countNeighbors(grid, x, y);
+
+                    if (state === 0 && neighbors === 3) {
+                        nextGrid[x][y] = 1; // Зарождение жизни
+                    } else if (state === 1 && (neighbors < 2 || neighbors > 3)) {
+                        nextGrid[x][y] = 0; // Смерть от одиночества или перенаселения
+                    } else {
+                        nextGrid[x][y] = state; // Выживание
+                    }
+                }
+            }
+            grid = nextGrid;
+            generation++;
+            draw();
+        }
+
+        // Управление симуляцией
+        function startSimulation() {
+            if (!isRunning) {
+                isRunning = true;
+                document.getElementById('startBtn').textContent = 'Стоп';
+                document.getElementById('startBtn').classList.add('stop');
+                
+                function loop() {
+                    updateGrid();
+                    animationId = requestAnimationFrame(loop);
+                }
+                loop();
+            } else {
+                isRunning = false;
+                cancelAnimationFrame(animationId);
+                document.getElementById('startBtn').textContent = 'Старт';
+                document.getElementById('startBtn').classList.remove('stop');
+            }
+        }
+
+        function singleStep() {
+            if (!isRunning) updateGrid();
+        }
+
+        function clearGrid() {
+            if (isRunning) startSimulation();
+            grid = buildGrid();
+            generation = 0;
+            draw();
+        }
+
+        function randomGrid() {
+            clearGrid();
+            for (let x = 0; x < cols; x++) {
+                for (let y = 0; y < rows; y++) {
+                    grid[x][y] = Math.random() > 0.85 ? 1 : 0;
+                }
+            }
+            draw();
+        }
+
+        // Взаимодействие мышкой (рисование)
+        let isDrawing = false;
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; toggleCell(e); });
+        canvas.addEventListener('mousemove', (e) => { 
+          if (isDrawing) toggleCell(e);
+          //<!-- else highlightCell(e); -->
+        });
+        window.addEventListener('mouseup', () => isDrawing = false);
+
+
+        function getCellPosition(e) {
+          if (e != null) {
+            const rect = canvas.getBoundingClientRect();
+            const xValue = Math.floor((e.clientX - rect.left) / resolution);
+            const yValue = Math.floor((e.clientY - rect.top) / resolution);
+            return {x:xValue, y:yValue};
+          }
+          return {x:-1, y:-1}
+        }
+
+        function toggleCell(e) {
+            //var pos = getCellPosition(e);
+            //var x = pos.x;
+            //var y = pos.y;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / resolution);
+            const y = Math.floor((e.clientY - rect.top) / resolution);
+            if (x >= 0 && x < cols && y >= 0 && y < rows) {
+                grid[x][y] = grid[x][y] === 1 ? 0 : 1;
+                draw();
+            }
+        }
+
+//        function highlightCell(e) {
+//            var pos = getCellPosition(e);
+//            var x = pos.x;
+//            var y = pos.y;
+//            if (x >= 0 && x < cols && y >= 0 && y < rows) {
+//              ctx.fillStyle = '#fff';
+//              ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+//            }
+//            // restore last highlighted
+//            if (lastHoveredCell != null) {
+//              var pos = getCellPosition(lastHoveredCell);
+//              var x = pos.x; var y = pos.y;
+//              if (x >= 0 && x < cols && y >= 0 && y < rows) {
+//                if (grid[x][y] === 1) {
+//                    ctx.fillStyle = '#64ffda';
+//                } else {
+//                    ctx.fillStyle = "#222";
+//                }
+//                ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+//              }
+//            }
+//            lastHoveredCell = e;
+//        }
+
+        // События кнопок
+        document.getElementById('startBtn').addEventListener('click', startSimulation);
+        document.getElementById('stepBtn').addEventListener('click', singleStep);
+        document.getElementById('clearBtn').addEventListener('click', clearGrid);
+        document.getElementById('randomBtn').addEventListener('click', randomGrid);
+
+        // Первый запуск
+        draw();
+    </script>
+</body>
+</html>
