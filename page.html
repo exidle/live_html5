@@ -60,7 +60,7 @@
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
 
-        const resolution = 16; // Размер клетки в пикселях
+        const resolution = 2 << 3; // Размер клетки в пикселях
         const cols = Math.floor(canvas.width / resolution);
         const rows = Math.floor(canvas.height / resolution);
 
@@ -70,8 +70,7 @@
         let animationId = null;
         let isRunning = false;
         let generation = 0;
-        let lastHoveredCell = null;
-
+        let selectedCell = null;
 
         // Инициализация пустого поля
         function buildGrid() {
@@ -83,6 +82,13 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             let aliveCount = 0;
+
+            if (selectedCell != null) {
+              ctx.fillStyle = '#fff';
+              var pos = getCellPosition(selectedCell);
+              x=pos.x; y = pos.y;
+              ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+            }
             
             for (let x = 0; x < cols; x++) {
                 for (let y = 0; y < rows; y++) {
@@ -176,10 +182,13 @@
 
         // Взаимодействие мышкой (рисование)
         let isDrawing = false;
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; toggleCell(e); });
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true;  selectedCell = null; toggleCell(e); });
         canvas.addEventListener('mousemove', (e) => { 
           if (isDrawing) toggleCell(e);
-          //<!-- else highlightCell(e); -->
+          else {
+            selectedCell = e;
+            draw();
+          }
         });
         window.addEventListener('mouseup', () => isDrawing = false);
 
@@ -195,41 +204,39 @@
         }
 
         function toggleCell(e) {
-            //var pos = getCellPosition(e);
-            //var x = pos.x;
-            //var y = pos.y;
-            const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / resolution);
-            const y = Math.floor((e.clientY - rect.top) / resolution);
+            var pos = getCellPosition(e);
+            var x = pos.x;
+            var y = pos.y;
             if (x >= 0 && x < cols && y >= 0 && y < rows) {
                 grid[x][y] = grid[x][y] === 1 ? 0 : 1;
                 draw();
             }
         }
 
-//        function highlightCell(e) {
-//            var pos = getCellPosition(e);
-//            var x = pos.x;
-//            var y = pos.y;
-//            if (x >= 0 && x < cols && y >= 0 && y < rows) {
-//              ctx.fillStyle = '#fff';
-//              ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
-//            }
-//            // restore last highlighted
-//            if (lastHoveredCell != null) {
-//              var pos = getCellPosition(lastHoveredCell);
-//              var x = pos.x; var y = pos.y;
-//              if (x >= 0 && x < cols && y >= 0 && y < rows) {
-//                if (grid[x][y] === 1) {
-//                    ctx.fillStyle = '#64ffda';
-//                } else {
-//                    ctx.fillStyle = "#222";
-//                }
-//                ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
-//              }
-//            }
-//            lastHoveredCell = e;
-//        }
+        function highlightCell(e) {
+            console.log("HC");
+            var pos = getCellPosition(e);
+            var x = pos.x;
+            var y = pos.y;
+            if (x >= 0 && x < cols && y >= 0 && y < rows) {
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+            }
+            // restore last highlighted
+            if (lastHoveredCell != null) {
+              var pos = getCellPosition(lastHoveredCell);
+              var x = pos.x; var y = pos.y;
+              if (x >= 0 && x < cols && y >= 0 && y < rows) {
+                if (grid[x][y] === 1) {
+                    ctx.fillStyle = '#64ffda';
+                } else {
+                    ctx.fillStyle = "#222";
+                }
+                ctx.fillRect(x * resolution, y * resolution, resolution - 1, resolution - 1);
+              }
+            }
+            lastHoveredCell = e;
+        }
 
         // События кнопок
         document.getElementById('startBtn').addEventListener('click', startSimulation);
