@@ -45,12 +45,14 @@
 
     <h1>Игра "Жизнь" Конвея</h1>
     
+
     <div class="controls">
         <button id="startBtn">Старт</button>
         <button id="stepBtn">Шаг</button>
         <button id="clearBtn">Очистить</button>
         <button id="randomBtn">Случайное поле</button>
     </div>
+
 
     <canvas id="gridCanvas" width="800" height="800"></canvas>
     
@@ -71,6 +73,10 @@
         let isRunning = false;
         let generation = 0;
         let selectedCell = null;
+        /* FPS count */
+        let start;
+        let frame = 0;
+        let fps = 0;
 
         // Инициализация пустого поля
         function buildGrid() {
@@ -99,6 +105,12 @@
                     }
                 }
             }
+            ctx.font = "12px Arial";
+            ctx.fillStyle = "#fff";
+            ctx.textAlign = "left";
+            let fpsString = "FPS: " + fps;
+            ctx.fillText(fpsString, 0, 10);
+
             document.getElementById('genCount').textContent = generation;
             document.getElementById('aliveCount').textContent = aliveCount;
         }
@@ -146,11 +158,22 @@
                 document.getElementById('startBtn').textContent = 'Стоп';
                 document.getElementById('startBtn').classList.add('stop');
                 
-                function loop() {
+                function loop(timestamp) {
+                  if (start === undefined) {
+                    start = timestamp;
+                    console.log("Timestamp: %d", start);
+                  }
+                  const elapsed = timestamp - start;
                     updateGrid();
                     animationId = requestAnimationFrame(loop);
+                  frame++;
+                  if (frame > 60) { 
+                    fps = 0 | (1000 * frame / (timestamp - start));
+                    start = timestamp;
+                    frame = 0;
+                  }
                 }
-                loop();
+                loop(document.timeline.currentTime);
             } else {
                 isRunning = false;
                 cancelAnimationFrame(animationId);
